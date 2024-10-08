@@ -1,58 +1,48 @@
 const express = require('express');
 const axios = require('axios');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
-// Replace with your actual Google API key
-const Used_Apikey = "AIzaSyB2mvsGVTZAU-h-GtCLzoLhjHEdvugx9uQ";
-const genAI = new GoogleGenerativeAI(Used_Apikey);
+// Function to generate random text
+function generateRandomText() {
+    const characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let randomText = '';
+    const length = Math.floor(Math.random() * 20) + 5; // Random length between 5 and 25 characters
 
-// Middleware to parse JSON request bodies
-app.use(express.json());
-
-app.get('/process-image', async (req, res) => {
-    try {
-        const imageUrl = req.query.imageUrl;
-        const prompt = req.query.prompt || ''; // Get prompt from query parameters
-
-        if (!imageUrl) {
-            return res.status(400).json({ error: 'No image URL provided' });
-        }
-
-        // Download the image
-        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-        const fileData = Buffer.from(response.data); // Convert to Buffer
-
-        // Upload the file to Google AI File Manager
-        const uploadResponse = await genAI.uploadFile(fileData, {
-            mimeType: "image/jpeg",
-            displayName: `image_${Date.now()}.jpg`,
-        });
-
-        console.log(`Uploaded file ${uploadResponse.file.displayName} as: ${uploadResponse.file.uri}`);
-
-        const result = await genAI.getGenerativeModel({
-            model: "gemini-1.5-pro",
-        }).generateContent([
-            {
-                fileData: {
-                    mimeType: uploadResponse.file.mimeType,
-                    fileUri: uploadResponse.file.uri
-                }
-            },
-            { text: 'gunakan bahasa indonesia ' + prompt },
-        ]);
-
-        res.json({ response: result.response.text() });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'An error occurred while processing the image.' });
+    for (let i = 0; i < length; i++) {
+        randomText += characters.charAt(Math.floor(Math.random() * characters.length));
     }
+
+    return randomText;
+}
+
+// Function to send a message to NGL
+async function sendNglMessage(nglLink, message) {
+    try {
+        await axios.post(nglLink, { question: message });
+        console.log(`Message sent: ${message}`);
+    } catch (error) {
+        console.error('Error sending message:', error.message);
+    }
+}
+
+// API to send 100 random messages to the NGL link
+app.get('/send/:username', async (req, res) => {
+    const username = req.params.username;
+    const nglLink = `https://ngl.link/${username}`;
+    
+    console.log(`Sending messages to ${nglLink}...`);
+
+    for (let i = 0; i < 100; i++) {
+        const randomMessage = generateRandomText();
+        await sendNglMessage(nglLink, randomMessage);
+    }
+
+    res.send(`100 random messages sent to ${nglLink}`);
 });
 
 // Start the server
 app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
+    console.log(`Server running on port ${port}`);
 });
